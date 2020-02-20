@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,6 +14,10 @@ import (
 	"strings"
 
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-core/crypto"
+	plaintext "github.com/libp2p/go-libp2p-core/sec/insecure"
+	noise "github.com/libp2p/go-libp2p-noise"
+	secio "github.com/libp2p/go-libp2p-secio"
 
 	relay "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
@@ -62,6 +67,7 @@ func pprofHTTP(port int) {
 func main() {
 	identify.ClientVersion = "p2pd/0.1"
 
+	security := flag.String("security", "", "security protocol used for secure channel")
 	maddrString := flag.String("listen", "/unix/tmp/p2pd.sock", "daemon control listen multiaddr")
 	quiet := flag.Bool("q", false, "be quiet")
 	id := flag.String("id", "", "peer identity; private key file")
@@ -260,15 +266,8 @@ func main() {
 		go pprofHTTP(int(c.PProf.Port))
 	}
 
-	// collect opts
-	if c.ID != "" {
-		key, err := p2pd.ReadIdentity(c.ID)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		opts = append(opts, libp2p.Identity(key))
-	}
+	priv, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, rand.Reader)
+	opts = append(opts, libp2p.Identity(priv))
 
 	if len(c.HostAddresses) > 0 {
 		opts = append(opts, libp2p.ListenAddrs(c.HostAddresses...))
@@ -285,6 +284,25 @@ func main() {
 			c.ConnectionManager.HighWaterMark,
 			c.ConnectionManager.GracePeriod)
 		opts = append(opts, libp2p.ConnectionManager(cm))
+	}
+
+	protocolID := *security
+	if protocolID == plaintext.ID {
+		opts = append(opts, libp2p.NoSecurity)
+	} else if protocolID == noise.ID {
+		tpt, err := noise.New(priv, noise.NoiseKeyPair(nil))
+		if err != nil {
+			log.Fatal("failed to initialize noise key pair")
+		}
+		opts = append(opts, libp2p.Security(protocolID, tpt))
+	} else if protocolID == secio.ID {
+		tpt, err := secio.New(priv)
+		if err != nil {
+			log.Fatal("failed to initialize noise secio pair")
+		}
+		opts = append(opts, libp2p.Security(protocolID, tpt))
+	} else {
+		log.Fatalf("security protocolID '%s' is not supported", protocolID)
 	}
 
 	if c.QUIC {
