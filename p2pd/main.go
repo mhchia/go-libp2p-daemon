@@ -19,6 +19,7 @@ import (
 	noise "github.com/libp2p/go-libp2p-noise"
 	secio "github.com/libp2p/go-libp2p-secio"
 
+	golog "github.com/ipfs/go-log"
 	relay "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	p2pd "github.com/libp2p/go-libp2p-daemon"
@@ -28,6 +29,7 @@ import (
 	identify "github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	multiaddr "github.com/multiformats/go-multiaddr"
 	promhttp "github.com/prometheus/client_golang/prometheus/promhttp"
+	gologging "github.com/whyrusleeping/go-logging"
 
 	_ "net/http/pprof"
 )
@@ -65,6 +67,8 @@ func pprofHTTP(port int) {
 }
 
 func main() {
+	golog.SetAllLoggers(gologging.DEBUG) // Change to DEBUG for extra info
+
 	identify.ClientVersion = "p2pd/0.1"
 
 	security := flag.String("security", "", "security protocol used for secure channel")

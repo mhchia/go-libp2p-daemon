@@ -23,4 +23,5 @@ require (
 	github.com/multiformats/go-multihash v0.0.13
 	github.com/prometheus/client_golang v1.4.1
 	github.com/stretchr/testify v1.4.0
+	github.com/whyrusleeping/go-logging v0.0.1
 )
